@@ -1,0 +1,380 @@
+---
+title: "Problem Set skills 5"
+author: "Sabrina Li"
+date: "29/03/2020"
+output: 
+  pdf_document:
+    number_sections: yes
+  html_document:
+    df_print: paged
+urlcolor: blue
+---
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(forecast)
+library(stringr)
+library(lubridate)
+Sys.setlocale(locale = 'USA')
+```
+
+<!-- .Rmd files use  markdown, a text mark up language, to provide formating.--> 
+<!--Text include within these strange arrows are comments and will not show up when you knit-->
+
+# Front matter
+This submission is my work alone and complies with the 30535 integrity policy.
+
+Add your initials to indicate your agreement: **__**
+
+Add your collaborators: **__**
+
+Late coins used this pset: 0. Late coins left: X. 
+<!--You may use up to two for a given assignment.)-->
+
+# Problems
+## You change section heading goes here 
+<!--(Notice the use of two `##`)-->
+
+# 1
+
+## 1
+
+```{r}
+
+
+
+## 1
+df = forcats::gss_cat
+
+df %>% ggplot(aes(y = rincome)) + geom_bar() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+```
+
+
+there are many categories that could be attributed to NA value.
+
+
+## 2
+
+```{r}
+df %>%
+  mutate(
+    rincome =
+      fct_collapse(
+        rincome,
+        `NA` = c("No answer", "Don't know", "Refused", "Not applicable"),
+        
+      )
+  ) %>% filter(rincome != 'NA') %>%
+  ggplot(aes(y = rincome)) +
+  geom_bar() + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  labs(title = 'Distribution of rincome')
+
+
+```
+
+
+## 3
+
+### a
+
+```{r}
+df %>% ggplot(aes(x = tvhours)) + geom_histogram(binwidth  = 1)
+```
+value larger than 10 could be consdiered as unreasonably high, I assume the answers of larger than 10 hours are not serious answers, so I deceide to drop it.
+
+
+### b
+
+```{r}
+p = df %>% filter(tvhours < 10)  %>% 
+  ggplot(aes(y = tvhours, x = relig)) + 
+  geom_boxplot() + labs(title = 'tv watching time vs religion') 
+
+
+p +theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) 
+
+```
+
+
+
+### c
+
+```{r}
+p <- df %>% filter(tvhours < 10)  %>%
+  ggplot(aes(y = tvhours, x = relig,
+             ymin= mean(tvhours) - 1.64 * sd(tvhours)  ,
+             ymax= mean(tvhours) + 1.64 * sd(tvhours) ), fill =relig)
+
+p = p +  geom_boxplot() + 
+  labs(title = 'tv watching time vs religion') +geom_linerange(color ='red')+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) 
+
+p 
+
+```
+
+
+# 2
+
+## 1
+
+```{r}
+d1 <- "123-Apr-03"
+d2 <- "06-Jun-2017"
+d3 <- "12/29/14" # Dec 29, 2014
+d4 <- "November 20, 1909"
+d5 <- c("January 2 (2016)", "January 2 (2018)")
+
+ymd(d1 )
+dmy(d2)
+mdy(d3)
+mdy(d4)
+mdy(d5)
+```
+
+## 2
+
+```{r}
+ymd(20120107) + months(1:12) 
+floor_date(today(), unit = "year") + months(1:12) + days(4)
+```
+
+
+## 3
+
+### 1
+
+```{r}
+library(nycflights13)
+df = nycflights13::flights
+df$correct = df$dep_time - df$sched_dep_time == df$dep_delay
+df %>% ggplot(aes(correct)) + geom_bar() + 
+  labs(title = 'count for sched_dep_time = dep_delay')
+
+```
+
+No, it does not hold.
+
+### 2
+
+```{r}
+df$season = floor(df$month / 3.1) + 1
+
+df %>% ggplot(aes(x = air_time, 
+                  color = factor(season))) + geom_density()+
+  labs(title = 'distribution of flight time by seasons')
+
+```
+
+The distributions seem similar.
+
+### 3
+
+```{r}
+df$if_arr_delay = df$arr_delay > 0
+
+df$weekdays = paste(df$year, df$month, df$day, sep = '-') %>%
+  ymd() %>% weekdays()
+
+p <- ggplot(df[df$if_arr_delay,], aes(weekdays)) + 
+  geom_bar(aes(y = (..count..)/sum(..count..))) + 
+  scale_y_continuous(labels=scales::percent) +
+  ylab("relative frequencies") +
+  labs(title = 'arriaval delay rate by weekday')
+p
+
+```
+
+Saturday has smallest probability of an arrival delay.
+
+# 3
+
+## 1
+
+```{r}
+library(dslabs)
+df = dslabs::movielens
+df$utc = as.POSIXct(as.numeric(as.character(df$timestamp)),
+                    origin="1970-01-01", tz="UTC")
+df$utc %>% year() %>% unique() %>% range() # years covered
+```
+
+## 2
+
+```{r}
+ge_list = df$genres %>% levels() %>% str_split(., '\\|') %>%
+  unlist() %>% str_squish() %>% unique() 
+ge_list
+(ge_list %>% length()) -1
+```
+There are 19 types.
+ 
+ 
+ 
+```{r}
+
+a = df$genres %>% grepl('horror', ., ignore.case = T) %>% sum()
+b = df$genres %>% grepl('Sci-Fi', ., ignore.case = T) %>% sum()
+idx = df$genres %>% grepl('horror', ., ignore.case = T) + 
+  df$genres %>% grepl('Sci-Fi', ., ignore.case = T)
+
+df[idx == 2,] %>% nrow() # many movies are classified as Horror (and) Sci-Fi?
+df[idx != 0, ] %>% nrow() # many movies are classified as Horror (/or)Sci-Fi?
+
+df[idx != 0, ] -> subdf
+subdf$year %>% table() %>% sort() %>% tail(1) 
+```
+in  year 1999 released more of these movies compare to other genres?
+
+
+## 3
+
+```{r}
+
+
+
+df$Weekdays = df$utc %>% weekdays()
+table(df$Weekdays) %>% sort() %>% tail(1)
+
+table(df$Weekdays[idx !=0]) %>% sort() %>% tail(1)
+```
+Tuesday, in both cases.
+
+
+```{r}
+df$is_h_s =  idx != 0
+
+
+df %>% ggplot(aes(x = Weekdays, fill = factor(is_h_s))) +
+  geom_bar(position = "dodge") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  labs(title = 'count by weekdays')
+
+
+```
+
+
+# 3
+
+## 1
+
+```{r}
+avg_dest_delays <-
+  flights %>%
+  group_by(dest) %>%
+  summarise(delay = mean(arr_delay, na.rm = TRUE)) %>%
+  inner_join(airports, by = c(dest = "faa"))
+
+avg_dest_delays %>%
+  ggplot(aes(lon, lat, colour = delay)) +
+  borders("state") +
+  geom_point() +
+  coord_quickmap()
+
+```
+
+## 2
+
+```{r}
+airport_locations <- airports %>%
+  select(faa, lat, lon)
+
+new_df = flights %>%
+  select(year:day, hour, origin, dest) %>%
+  left_join(
+    airport_locations,
+    by = c("origin" = "faa")
+  ) %>%
+  left_join(
+    airport_locations,
+    by = c("dest" = "faa"),
+    suffix = c("_origin", "_dest")
+  )
+
+new_df %>% head(1)
+
+```
+
+
+## 3
+
+```{r}
+
+flights %>% group_by(tailnum) %>% summarise(n_owner = n_distinct(carrier)) %>% 
+  filter(n_owner > 1) 
+```
+
+
+
+## 4
+
+```{r}
+inner_join(flights,
+           select(planes, tailnum, plane_year = year),
+           by = "tailnum"
+) %>%
+  mutate(age = year - plane_year) %>%
+  filter(!is.na(age)) %>%
+  mutate(age = if_else(age > 25, 25L, age)) %>%
+  group_by(age) %>%
+  summarise(
+    n_dep_delay = sum(!is.na(dep_delay))
+  ) %>% ggplot(aes(x = age, y = n_dep_delay)) + 
+  geom_point() + labs(title = 'age vs depature delay', 
+                      subtitle = 'two pattern: threshold 15 years')
+
+```
+
+
+## 5
+
+```{r}
+system.time({
+  head(flights, 100) %>% left_join(
+    weather, by = 'year'
+  ) -> by_year
+  
+  print(nrow(by_year))
+  
+})
+```
+2611500 rows. It lasted 0.27 seconds.
+
+## 6
+
+In the result, flights' rows will be duplicated, the duplication number of each rows depends on the how many rows in the weather table that has same value of year. The expected value of row number could be:
+```{r}
+2611500 * nrow(flights) / 100
+```
+
+
+
+## 7
+
+```{r}
+flights %>%
+  filter(year == 2013, month == 6, day == 13) %>%
+  group_by(dest) %>%
+  summarise(ave_delay = mean(arr_delay, na.rm = TRUE), n = n()) %>%
+  left_join(airports, c("dest" = "faa")) %>%
+  select(dest, n, ave_delay, lat, lon) %>% ggplot(aes(lon, lat)) +
+  borders("state") +
+  geom_point(aes(size = ave_delay, color = ave_delay)) +
+  coord_quickmap() + 
+  labs(title = 'delay caused by storms in the southeastern US')
+
+```
+
+
+## 8 
+
+
+- `anti_join(flights, airports, by = c("dest" = "faa"))` :flight by which the destinations are not included in the airports database.
+
+-` anti_join(airports, flights, by = c("faa" = "dest")) `:  airport by which there is no recrods in  flights .
+
+
+
+
+
